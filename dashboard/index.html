@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StelLive Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #faf8ff;
+  --surface: #ffffff;
+  --border:  rgba(130,100,200,0.12);
+  --text:    #1a1030;
+  --muted:   #9080b0;
+  --accent:  #8040d0;
+}
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── 헤더 ── */
+header {
+  background: linear-gradient(135deg, #f0e8ff 0%, #ffe8f5 50%, #e8f0ff 100%);
+  padding: 28px 32px 22px;
+  border-bottom: 1px solid var(--border);
+}
+.header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.logo { font-size: 1.3rem; font-weight: 900; color: var(--accent); letter-spacing: -.02em; }
+.logo span { color: var(--muted); font-weight: 300; font-size: .85rem; margin-left: 8px; }
+.last-updated { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+
+/* ── 레이아웃 ── */
+.main { max-width: 1280px; margin: 0 auto; padding: 28px 24px 60px; }
+
+/* ── 탭 ── */
+.tabs { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+.tab {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 12px; font-weight: 700;
+  padding: 7px 18px; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--muted);
+  cursor: pointer; transition: all .2s;
+}
+.tab:hover { color: var(--accent); border-color: var(--accent); }
+.tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* ── 통계 카드 행 ── */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 16px;
+  text-align: center;
+}
+.stat-card .n {
+  font-size: 1.7rem; font-weight: 900;
+  background: linear-gradient(135deg, var(--accent), #d040a0);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: block; margin-bottom: 4px;
+}
+.stat-card .l { font-size: 11px; color: var(--muted); letter-spacing: .05em; }
+
+/* ── 섹션 ── */
+.section { display: none; }
+.section.active { display: block; }
+
+/* ── 차트 그리드 ── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.chart-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 20px;
+}
+.chart-title {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.chart-title::before {
+  content: '';
+  width: 3px; height: 14px;
+  background: linear-gradient(180deg, var(--accent), #d040a0);
+  border-radius: 2px;
+  display: inline-block;
+}
+.chart-wrap { position: relative; height: 240px; }
+
+/* ── 테이블 ── */
+.table-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.table-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.table-title { font-size: 13px; font-weight: 700; }
+.table-count { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th {
+  padding: 10px 16px; text-align: left;
+  font-size: 10px; letter-spacing: .08em;
+  color: var(--muted); font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  background: #faf8ff;
+}
+.data-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(130,100,200,.06);
+  color: var(--text);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: #faf8ff; }
+.member-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.badge {
+  display: inline-block;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 8px;
+}
+.badge-gen1 { background: #f0e0ff; color: #7040b0; }
+.badge-gen2 { background: #fff5e0; color: #a07020; }
+.badge-gen3 { background: #e0faff; color: #208898; }
+
+/* ── 멤버 카드 그리드 ── */
+.member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.member-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px 18px;
+  position: relative;
+  overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+}
+.member-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(130,100,200,.12);
+}
+.member-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: var(--mc, #8040d0);
+}
+.mc-name { font-size: 1.05rem; font-weight: 900; margin-bottom: 2px; }
+.mc-name-en { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 12px; }
+.mc-stat { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
+.mc-stat .label { color: var(--muted); }
+.mc-stat .val { font-weight: 700; font-family: 'DM Mono', monospace; }
+
+/* ── 필터 바 ── */
+.filter-bar {
+  display: flex; gap: 8px; align-items: center;
+  margin-bottom: 16px; flex-wrap: wrap;
+}
+.filter-label { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .05em; }
+.filter-btn {
+  font-size: 11px; font-weight: 700; padding: 5px 14px;
+  border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--muted);
+  cursor: pointer; transition: all .15s;
+}
+.filter-btn:hover, .filter-btn.on { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* ── 빈 상태 ── */
+.empty-state {
+  text-align: center; padding: 48px 24px;
+  color: var(--muted); font-size: 13px;
+}
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+
+/* ── 로딩 ── */
+.loading {
+  text-align: center; padding: 32px;
+  color: var(--muted); font-size: 13px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="logo">StelLive Dashboard <span>스텔라이브 데이터 분석</span></div>
+    </div>
+    <div class="last-updated" id="lastUpdated">데이터 로딩 중...</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- 탭 -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('overview', this)">개요</button>
+    <button class="tab" onclick="switchTab('members', this)">멤버별</button>
+    <button class="tab" onclick="switchTab('streams', this)">방송 기록</button>
+    <button class="tab" onclick="switchTab('music', this)">음악</button>
+    <button class="tab" onclick="switchTab('collabs', this)">콜라보</button>
+    <button class="tab" onclick="switchTab('followers', this)">팔로워 추이</button>
+  </div>
+
+  <!-- ① 개요 -->
+  <div class="section active" id="sec-overview">
+    <div class="stat-row" id="statRow">
+      <div class="stat-card"><span class="n" id="st-members">-</span><span class="l">활동 멤버</span></div>
+      <div class="stat-card"><span class="n" id="st-streams">-</span><span class="l">총 방송 수</span></div>
+      <div class="stat-card"><span class="n" id="st-music">-</span><span class="l">음악 발매</span></div>
+      <div class="stat-card"><span class="n" id="st-collabs">-</span><span class="l">콜라보</span></div>
+      <div class="stat-card"><span class="n" id="st-followers">-</span><span class="l">평균 팔로워</span></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box">
+        <div class="chart-title">팔로워 수 비교</div>
+        <div class="chart-wrap"><canvas id="chartFollowers"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">기수별 방송 횟수</div>
+        <div class="chart-wrap"><canvas id="chartGenStreams"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">카테고리별 방송 분포</div>
+        <div class="chart-wrap"><canvas id="chartCategory"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">구독자 수 비교 (YouTube)</div>
+        <div class="chart-wrap"><canvas id="chartSubs"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 멤버별 -->
+  <div class="section" id="sec-members">
+    <div class="filter-bar">
+      <span class="filter-label">기수</span>
+      <button class="filter-btn on" data-gen="0" onclick="filterMembers(0, this)">전체</button>
+      <button class="filter-btn" data-gen="1" onclick="filterMembers(1, this)">1기</button>
+      <button class="filter-btn" data-gen="2" onclick="filterMembers(2, this)">2기</button>
+      <button class="filter-btn" data-gen="3" onclick="filterMembers(3, this)">3기</button>
+    </div>
+    <div class="member-grid" id="memberGrid"></div>
+  </div>
+
+  <!-- ③ 방송 기록 -->
+  <div class="section" id="sec-streams">
+    <div class="filter-bar">
+      <span class="filter-label">멤버</span>
+      <button class="filter-btn on" onclick="filterStreams('all', this)">전체</button>
+      <span id="streamMemberBtns"></span>
+    </div>
+    <div class="table-box">
+      <div class="table-header">
+        <span class="table-title">방송 기록</span>
+        <span class="table-count" id="streamCount">-</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>날짜</th><th>멤버</th><th>제목</th>
+              <th>길이</th><th>카테고리</th><th>조회수</th><th>콜라보</th>
+            </tr>
+          </thead>
+          <tbody id="streamTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 음악 -->
+  <div class="section" id="sec-music">
+    <div class="table-box">
+      <div class="table-header">
+        <span class="table-title">음악 발매 목록</span>
+        <span class="table-count" id="musicCount">-</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr><th>발매일</th><th>멤버</th><th>제목</th><th>조회수</th><th>좋아요</th></tr>
+          </thead>
+          <tbody id="musicTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ 콜라보 -->
+  <div class="section" id="sec-collabs">
+    <div class="chart-grid" style="grid-template-columns:1fr">
+      <div class="chart-box">
+        <div class="chart-title">콜라보 횟수 히트맵 (멤버 × 멤버)</div>
+        <div id="collabHeatmap" style="overflow-x:auto"></div>
+      </div>
+    </div>
+    <div class="table-box">
+      <div class="table-header">
+        <span class="table-title">콜라보 기록</span>
+        <span class="table-count" id="collabCount">-</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr><th>날짜</th><th>멤버A</th><th>멤버B</th><th>방송 제목</th></tr>
+          </thead>
+          <tbody id="collabTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 팔로워 추이 -->
+  <div class="section" id="sec-followers">
+    <div class="chart-box" style="margin-bottom:20px">
+      <div class="chart-title">치지직 팔로워 추이</div>
+      <div class="chart-wrap" style="height:320px"><canvas id="chartFollowerTrend"></canvas></div>
+    </div>
+    <div class="table-box">
+      <div class="table-header">
+        <span class="table-title">팔로워 스냅샷</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr><th>날짜</th><th>멤버</th><th>팔로워</th><th>라이브 여부</th></tr>
+          </thead>
+          <tbody id="followerTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── 데이터 로드 ───────────────────────────────────
+const MEMBER_COLORS = {
+  ayatsuno_yuni:  "#b060c8",
+  sakihane_huya:  "#7040c0",
+  shirayuki_hina: "#e09820",
+  neneko_mashiro: "#40b878",
+  akane_lize:     "#e04848",
+  arahashi_tabi:  "#d85090",
+  tenko_shibuki:  "#20b8c0",
+  aokumo_rin:     "#5080e0",
+  hanako_nana:    "#e07820",
+  yuzuha_riko:    "#d060a0",
+};
+const GEN_BADGE = { 1:"badge-gen1", 2:"badge-gen2", 3:"badge-gen3" };
+const GEN_LABEL = { 1:"1기", 2:"2기", 3:"3기" };
+
+let DATA = { streams:[], music:[], collabs:[], followers:[], subscribers:[] };
+let MEMBERS_META = [];
+let currentStreamFilter = "all";
+
+async function loadJSON(path) {
+  try {
+    const r = await fetch(path);
+    if (!r.ok) return [];
+    return await r.json();
+  } catch { return []; }
+}
+
+async function loadCSV(path) {
+  try {
+    const r = await fetch(path);
+    if (!r.ok) return [];
+    const text = await r.text();
+    const lines = text.trim().split("\n");
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",");
+    return lines.slice(1).map(line => {
+      const vals = line.split(",");
+      const obj = {};
+      headers.forEach((h, i) => obj[h.trim()] = (vals[i] || "").trim());
+      return obj;
+    });
+  } catch { return []; }
+}
+
+async function init() {
+  DATA.streams    = await loadJSON("../data/streams.json");
+  DATA.music      = await loadJSON("../data/music.json");
+  DATA.collabs    = await loadJSON("../data/collabs.json");
+  DATA.followers  = await loadCSV("../data/followers.csv");
+  DATA.subscribers = await loadCSV("../data/subscribers.csv");
+
+  // 멤버 메타 (streams에서 추출)
+  const seen = new Set();
+  for (const s of DATA.streams) {
+    if (!seen.has(s.member_id)) {
+      seen.add(s.member_id);
+      MEMBERS_META.push({
+        id:   s.member_id,
+        name: s.member_name,
+        gen:  parseInt(s.generation) || 0,
+        unit: s.unit || "",
+      });
+    }
+  }
+
+  // 최근 업데이트
+  const dates = DATA.followers.map(f => f.date).filter(Boolean).sort();
+  document.getElementById("lastUpdated").textContent =
+    dates.length ? `마지막 수집: ${dates[dates.length-1]}` : "수집된 데이터 없음";
+
+  renderOverview();
+  renderMembers();
+  renderStreamFilters();
+  renderStreams("all");
+  renderMusic();
+  renderCollabs();
+  renderFollowers();
+}
+
+// ─── 탭 전환 ───────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("sec-" + name).classList.add("active");
+}
+
+// ─── 개요 ──────────────────────────────────────────
+function fmt(n) {
+  if (n >= 10000) return (n/10000).toFixed(1) + "만";
+  if (n >= 1000)  return (n/1000).toFixed(1) + "천";
+  return String(n);
+}
+
+function renderOverview() {
+  // 통계 카드
+  const activeMembers = new Set(DATA.streams.map(s => s.member_id)).size;
+  document.getElementById("st-members").textContent  = activeMembers || "-";
+  document.getElementById("st-streams").textContent  = fmt(DATA.streams.length) || "-";
+  document.getElementById("st-music").textContent    = DATA.music.length || "-";
+  document.getElementById("st-collabs").textContent  = DATA.collabs.length || "-";
+
+  const latestFollowers = getLatestFollowers();
+  const total = Object.values(latestFollowers).reduce((a,b) => a + b, 0);
+  const avg = latestFollowers && Object.keys(latestFollowers).length
+    ? Math.round(total / Object.keys(latestFollowers).length) : 0;
+  document.getElementById("st-followers").textContent = avg ? fmt(avg) : "-";
+
+  // 팔로워 차트
+  const fKeys = Object.keys(latestFollowers);
+  const fVals = fKeys.map(k => latestFollowers[k]);
+  const fColors = fKeys.map(k => MEMBER_COLORS[k] || "#aaa");
+  const fLabels = fKeys.map(k => {
+    const m = MEMBERS_META.find(m => m.id === k);
+    return m ? m.name : k;
+  });
+  makeBar("chartFollowers", fLabels, fVals, fColors);
+
+  // 기수별 방송
+  const genCounts = {1:0, 2:0, 3:0};
+  for (const s of DATA.streams) genCounts[parseInt(s.generation)] = (genCounts[parseInt(s.generation)]||0) + 1;
+  makeBar("chartGenStreams",
+    ["1기 Everys", "2기 Universe", "3기 Cliché"],
+    [genCounts[1]||0, genCounts[2]||0, genCounts[3]||0],
+    ["#b060c8","#e09820","#20b8c0"]
+  );
+
+  // 카테고리
+  const catCount = {};
+  for (const s of DATA.streams) {
+    const c = s.category || "기타";
+    catCount[c] = (catCount[c]||0) + 1;
+  }
+  const sorted = Object.entries(catCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  makeDoughnut("chartCategory", sorted.map(x=>x[0]), sorted.map(x=>x[1]));
+
+  // 구독자
+  const latestSubs = {};
+  for (const row of DATA.subscribers) {
+    const key = row.member_id;
+    if (!latestSubs[key] || row.date > latestSubs[key].date)
+      latestSubs[key] = row;
+  }
+  const subKeys = Object.keys(latestSubs);
+  const subLabels = subKeys.map(k => {
+    const m = MEMBERS_META.find(m => m.id === k);
+    return m ? m.name : k;
+  });
+  const subVals = subKeys.map(k => parseInt(latestSubs[k].subscriber_count)||0);
+  const subColors = subKeys.map(k => MEMBER_COLORS[k] || "#aaa");
+  makeBar("chartSubs", subLabels, subVals, subColors);
+}
+
+function getLatestFollowers() {
+  const latest = {};
+  for (const row of DATA.followers) {
+    if (!latest[row.member_id] || row.date > latest[row.member_id].date)
+      latest[row.member_id] = row;
+  }
+  const result = {};
+  for (const [k,v] of Object.entries(latest))
+    result[k] = parseInt(v.follower_count) || 0;
+  return result;
+}
+
+// ─── 차트 헬퍼 ──────────────────────────────────────
+const chartInstances = {};
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+function makeBar(id, labels, data, colors) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  chartInstances[id] = new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 6, borderSkipped: false }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: "'Noto Sans KR'" }, maxRotation: 45 } },
+        y: { grid: { color: "rgba(0,0,0,.05)" }, ticks: { font: { family: "'DM Mono'" } } }
+      }
+    }
+  });
+}
+function makeDoughnut(id, labels, data) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  const colors = ["#b060c8","#e09820","#40b878","#e04848","#d85090","#20b8c0","#5080e0","#e07820"];
+  chartInstances[id] = new Chart(ctx, {
+    type: "doughnut",
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: "#fff" }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: "right", labels: { font: { family: "'Noto Sans KR'", size: 11 }, padding: 10 } } }
+    }
+  });
+}
+
+// ─── 멤버별 ────────────────────────────────────────
+let memberGenFilter = 0;
+function filterMembers(gen, btn) {
+  document.querySelectorAll(".filter-btn[data-gen]").forEach(b => b.classList.remove("on"));
+  btn.classList.add("on");
+  memberGenFilter = gen;
+  renderMembers();
+}
+function renderMembers() {
+  const latestF = getLatestFollowers();
+  const latestS = {};
+  for (const row of DATA.subscribers) {
+    if (!latestS[row.member_id] || row.date > latestS[row.member_id].date)
+      latestS[row.member_id] = row;
+  }
+  const streamCount = {};
+  for (const s of DATA.streams) streamCount[s.member_id] = (streamCount[s.member_id]||0) + 1;
+  const musicCount = {};
+  for (const m of DATA.music) musicCount[m.member_id] = (musicCount[m.member_id]||0) + 1;
+
+  const members = memberGenFilter === 0
+    ? MEMBERS_META
+    : MEMBERS_META.filter(m => m.gen === memberGenFilter);
+
+  const grid = document.getElementById("memberGrid");
+  grid.innerHTML = members.map(m => `
+    <div class="member-card" style="--mc:${MEMBER_COLORS[m.id]||'#8040d0'}">
+      <div class="mc-name">${m.name}</div>
+      <div class="mc-name-en" style="margin-bottom:6px">
+        <span class="badge ${GEN_BADGE[m.gen]||''}">${GEN_LABEL[m.gen]||''} ${m.unit}</span>
+      </div>
+      <div class="mc-stat">
+        <span class="label">치지직 팔로워</span>
+        <span class="val">${latestF[m.id] ? (latestF[m.id]/10000).toFixed(1)+"만" : "-"}</span>
+      </div>
+      <div class="mc-stat">
+        <span class="label">유튜브 구독자</span>
+        <span class="val">${latestS[m.id] ? fmt(parseInt(latestS[m.id].subscriber_count)||0) : "-"}</span>
+      </div>
+      <div class="mc-stat">
+        <span class="label">방송 횟수</span>
+        <span class="val">${streamCount[m.id] || 0}회</span>
+      </div>
+      <div class="mc-stat">
+        <span class="label">음악 발매</span>
+        <span class="val">${musicCount[m.id] || 0}곡</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ─── 방송 기록 ──────────────────────────────────────
+function renderStreamFilters() {
+  const container = document.getElementById("streamMemberBtns");
+  container.innerHTML = MEMBERS_META.map(m =>
+    `<button class="filter-btn" style="margin:2px"
+      onclick="filterStreams('${m.id}', this)">${m.name}</button>`
+  ).join("");
+}
+function filterStreams(mid, btn) {
+  document.querySelectorAll("#sec-streams .filter-btn").forEach(b => b.classList.remove("on"));
+  btn.classList.add("on");
+  currentStreamFilter = mid;
+  renderStreams(mid);
+}
+function renderStreams(mid) {
+  const list = mid === "all" ? DATA.streams : DATA.streams.filter(s => s.member_id === mid);
+  const show = list.slice(0, 200);
+  document.getElementById("streamCount").textContent = `${list.length}건`;
+  document.getElementById("streamTable").innerHTML = show.map(s => `
+    <tr>
+      <td style="font-family:'DM Mono';font-size:11px">${s.date||"-"}</td>
+      <td><span class="member-dot" style="background:${MEMBER_COLORS[s.member_id]||'#aaa'}"></span>${s.member_name||"-"}</td>
+      <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.title||"-"}</td>
+      <td style="font-family:'DM Mono'">${s.duration_min||"-"}분</td>
+      <td>${s.category||"-"}</td>
+      <td style="font-family:'DM Mono'">${parseInt(s.view_count||0).toLocaleString()}</td>
+      <td>${s.is_collab==="True"||s.is_collab===true ? "✓" : ""}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="7" class="empty-state">데이터 없음</td></tr>`;
+}
+
+// ─── 음악 ──────────────────────────────────────────
+function renderMusic() {
+  const sorted = [...DATA.music].sort((a,b) => (b.published_at||"").localeCompare(a.published_at||""));
+  document.getElementById("musicCount").textContent = `${sorted.length}곡`;
+  document.getElementById("musicTable").innerHTML = sorted.map(m => `
+    <tr>
+      <td style="font-family:'DM Mono';font-size:11px">${m.published_at||"-"}</td>
+      <td><span class="member-dot" style="background:${MEMBER_COLORS[m.member_id]||'#aaa'}"></span>${m.member_name||"-"}</td>
+      <td>${m.title||"-"}</td>
+      <td style="font-family:'DM Mono'">${parseInt(m.view_count||0).toLocaleString()}</td>
+      <td style="font-family:'DM Mono'">${parseInt(m.like_count||0).toLocaleString()}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="5" class="empty-state">데이터 없음</td></tr>`;
+}
+
+// ─── 콜라보 ────────────────────────────────────────
+function renderCollabs() {
+  document.getElementById("collabCount").textContent = `${DATA.collabs.length}건`;
+
+  // 히트맵 테이블
+  const members = MEMBERS_META.map(m => m.id);
+  const names   = MEMBERS_META.map(m => m.name);
+  const matrix  = {};
+  members.forEach(a => { matrix[a] = {}; members.forEach(b => matrix[a][b] = 0); });
+  for (const c of DATA.collabs) {
+    if (matrix[c.member_a] && matrix[c.member_a][c.member_b] !== undefined)
+      matrix[c.member_a][c.member_b]++;
+  }
+  const maxVal = Math.max(1, ...members.flatMap(a => members.map(b => matrix[a]?.[b]||0)));
+
+  let html = `<table style="border-collapse:collapse;font-size:10px;font-family:'DM Mono'">
+    <tr><th style="padding:6px"></th>${names.map(n=>`<th style="padding:6px;writing-mode:vertical-lr;transform:rotate(180deg);white-space:nowrap">${n}</th>`).join("")}</tr>`;
+  for (let i = 0; i < members.length; i++) {
+    html += `<tr><td style="padding:6px;white-space:nowrap;font-family:'Noto Sans KR'">${names[i]}</td>`;
+    for (let j = 0; j < members.length; j++) {
+      const v = matrix[members[i]]?.[members[j]] || 0;
+      const alpha = i === j ? 0.06 : v / maxVal * 0.85;
+      const color = MEMBER_COLORS[members[i]] || "#8040d0";
+      html += `<td style="padding:6px;text-align:center;background:${hexAlpha(color, alpha)};border-radius:4px">${v>0?v:""}</td>`;
+    }
+    html += "</tr>";
+  }
+  html += "</table>";
+  document.getElementById("collabHeatmap").innerHTML = html;
+
+  // 콜라보 테이블
+  const sorted = [...DATA.collabs].sort((a,b) => (b.date||"").localeCompare(a.date||""));
+  document.getElementById("collabTable").innerHTML = sorted.slice(0,100).map(c => {
+    const ma = MEMBERS_META.find(m => m.id === c.member_a);
+    const mb = MEMBERS_META.find(m => m.id === c.member_b);
+    return `<tr>
+      <td style="font-family:'DM Mono';font-size:11px">${c.date||"-"}</td>
+      <td><span class="member-dot" style="background:${MEMBER_COLORS[c.member_a]||'#aaa'}"></span>${ma?.name||c.member_a}</td>
+      <td><span class="member-dot" style="background:${MEMBER_COLORS[c.member_b]||'#aaa'}"></span>${mb?.name||c.member_b}</td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.stream_title||"-"}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="4" class="empty-state">데이터 없음</td></tr>`;
+}
+
+function hexAlpha(hex, a) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ─── 팔로워 추이 ────────────────────────────────────
+function renderFollowers() {
+  // 날짜별 멤버 팔로워 그룹핑
+  const byMember = {};
+  for (const row of DATA.followers) {
+    if (!byMember[row.member_id]) byMember[row.member_id] = [];
+    byMember[row.member_id].push({ date: row.date, val: parseInt(row.follower_count)||0 });
+  }
+  const allDates = [...new Set(DATA.followers.map(r=>r.date))].sort();
+
+  if (allDates.length > 0) {
+    const datasets = Object.entries(byMember).map(([mid, rows]) => {
+      const m = MEMBERS_META.find(m => m.id === mid);
+      const dateMap = {};
+      rows.forEach(r => dateMap[r.date] = r.val);
+      return {
+        label: m?.name || mid,
+        data: allDates.map(d => dateMap[d] || null),
+        borderColor: MEMBER_COLORS[mid] || "#aaa",
+        backgroundColor: "transparent",
+        tension: 0.3,
+        borderWidth: 2,
+        pointRadius: 3,
+        spanGaps: true,
+      };
+    });
+
+    destroyChart("chartFollowerTrend");
+    const ctx = document.getElementById("chartFollowerTrend");
+    if (ctx) {
+      chartInstances["chartFollowerTrend"] = new Chart(ctx, {
+        type: "line",
+        data: { labels: allDates, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { font: { family: "'Noto Sans KR'", size: 11 } } } },
+          scales: {
+            x: { grid: { display: false } },
+            y: { grid: { color: "rgba(0,0,0,.05)" }, ticks: { font: { family: "'DM Mono'" } } }
+          }
+        }
+      });
+    }
+  }
+
+  // 팔로워 테이블
+  const sorted = [...DATA.followers].sort((a,b) => (b.date||"").localeCompare(a.date||""));
+  document.getElementById("followerTable").innerHTML = sorted.slice(0,100).map(row => `
+    <tr>
+      <td style="font-family:'DM Mono';font-size:11px">${row.date}</td>
+      <td><span class="member-dot" style="background:${MEMBER_COLORS[row.member_id]||'#aaa'}"></span>${row.member_name}</td>
+      <td style="font-family:'DM Mono'">${parseInt(row.follower_count||0).toLocaleString()}</td>
+      <td>${row.is_live==="True"||row.is_live===true ? "🔴 라이브" : ""}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="4" class="empty-state">데이터 없음</td></tr>`;
+}
+
+init();
+</script>
+</body>
+</html>
