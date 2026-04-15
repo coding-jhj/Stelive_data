@@ -40,9 +40,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
           git add data/
           git diff --staged --quiet || git commit -m "data: 자동 수집 $(date +'%Y-%m-%d')"
-          git pull --rebase origin main
           git push
 
       - name: GitHub Pages 배포 준비
