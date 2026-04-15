@@ -667,19 +667,9 @@ function renderStreams(mid) {
 }
 
 // ─── 음악 ──────────────────────────────────────────
-function isRealMusic(item) {
-  const title = (item.title || "").toLowerCase();
-  const hasShortsTag = title.includes("#shorts") || title.includes("shorts");
-  const hasMusicKw = ["cover", "live", "노래", "sing", "歌", "mv", "ost", "piano",
-                      "concert", "콘서트", "original", "feat", "remix"].some(k => title.includes(k));
-  // shorts인데 음악 키워드 없으면 제외
-  if (hasShortsTag && !hasMusicKw) return false;
-  return true;
-}
-
 function renderMusic() {
-  const filtered = DATA.music.filter(isRealMusic);
-  const sorted = [...filtered].sort((a,b) => (b.published_at||"").localeCompare(a.published_at||""));
+  // music.json은 이미 is_music=True만 필터링된 데이터이므로 추가 필터 불필요
+  const sorted = [...DATA.music].sort((a,b) => (b.published_at||"").localeCompare(a.published_at||""));
   document.getElementById("musicCount").textContent = `${sorted.length}곡`;
   document.getElementById("musicTable").innerHTML = sorted.map(m => `
     <tr>
