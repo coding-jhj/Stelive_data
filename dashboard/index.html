@@ -333,7 +333,7 @@ header {
   <div class="section" id="sec-collabs">
     <div class="chart-grid" style="grid-template-columns:1fr">
       <div class="chart-box">
-        <div class="chart-title">콜라보 횟수 히트맵 (멤버 × 멤버)</div>
+        <div class="chart-title">멤버별 콜라보 현황</div>
         <div id="collabHeatmap" style="overflow-x:auto"></div>
       </div>
     </div>
@@ -670,7 +670,12 @@ function renderMusic() {
     <tr>
       <td style="font-family:'DM Mono';font-size:11px">${m.published_at||"-"}</td>
       <td><span class="member-dot" style="background:${MEMBER_COLORS[m.member_id]||'#aaa'}"></span>${m.member_name||"-"}</td>
-      <td>${m.title||"-"}</td>
+      <td>${m.video_id
+        ? `<a href="https://www.youtube.com/watch?v=${m.video_id}" target="_blank" rel="noopener"
+            style="color:var(--accent);text-decoration:none;font-weight:500;"
+            onmouseover="this.style.textDecoration='underline'"
+            onmouseout="this.style.textDecoration='none'">${m.title||"-"} ↗</a>`
+        : (m.title||"-")}</td>
       <td style="font-family:'DM Mono'">${parseInt(m.view_count||0).toLocaleString()}</td>
       <td style="font-family:'DM Mono'">${parseInt(m.like_count||0).toLocaleString()}</td>
     </tr>
@@ -692,19 +697,38 @@ function renderCollabs() {
   }
   const maxVal = Math.max(1, ...members.flatMap(a => members.map(b => matrix[a]?.[b]||0)));
 
-  let html = `<table style="border-collapse:collapse;font-size:10px;font-family:'DM Mono'">
-    <tr><th style="padding:6px"></th>${names.map(n=>`<th style="padding:6px;writing-mode:vertical-lr;transform:rotate(180deg);white-space:nowrap">${n}</th>`).join("")}</tr>`;
+  // 멤버별 콜라보 TOP 파트너 카드 + 미니 히트맵
+  let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:8px">`;
   for (let i = 0; i < members.length; i++) {
-    html += `<tr><td style="padding:6px;white-space:nowrap;font-family:'Noto Sans KR'">${names[i]}</td>`;
-    for (let j = 0; j < members.length; j++) {
-      const v = matrix[members[i]]?.[members[j]] || 0;
-      const alpha = i === j ? 0.06 : v / maxVal * 0.85;
-      const color = MEMBER_COLORS[members[i]] || "#8040d0";
-      html += `<td style="padding:6px;text-align:center;background:${hexAlpha(color, alpha)};border-radius:4px">${v>0?v:""}</td>`;
-    }
-    html += "</tr>";
+    const mid = members[i];
+    const color = MEMBER_COLORS[mid] || "#8040d0";
+    // 이 멤버의 콜라보 상대 정렬
+    const partners = members
+      .map((pid, j) => ({ pid, name: names[j], count: matrix[mid]?.[pid] || 0 }))
+      .filter(p => p.pid !== mid && p.count > 0)
+      .sort((a, b) => b.count - a.count);
+    const total = partners.reduce((s, p) => s + p.count, 0);
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${color};border-radius:14px 14px 0 0"></div>
+      <div style="font-size:12px;font-weight:900;color:var(--text);margin-bottom:2px">${names[i].split(' ').pop()}</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px">총 ${total}회 콜라보</div>
+      ${partners.slice(0,4).map(p => {
+        const pct = Math.round(p.count / Math.max(maxVal,1) * 100);
+        const barW = Math.max(8, Math.round(p.count / Math.max(total,1) * 100));
+        return `<div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+            <span style="font-size:10px;color:var(--text)">${p.name.split(' ').pop()}</span>
+            <span style="font-size:10px;font-family:'DM Mono';font-weight:700;color:${color}">${p.count}</span>
+          </div>
+          <div style="height:4px;background:rgba(0,0,0,0.06);border-radius:2px">
+            <div style="height:4px;width:${barW}%;background:${color};border-radius:2px;opacity:0.7"></div>
+          </div>
+        </div>`;
+      }).join('')}
+      ${partners.length === 0 ? `<div style="font-size:10px;color:var(--muted)">콜라보 기록 없음</div>` : ''}
+    </div>`;
   }
-  html += "</table>";
+  html += `</div>`;
   document.getElementById("collabHeatmap").innerHTML = html;
 
   // 콜라보 테이블
@@ -728,6 +752,20 @@ function hexAlpha(hex, a) {
   return `rgba(${r},${g},${b},${a})`;
 }
 
+// ─── 멤버 데뷔일 ────────────────────────────────────
+const DEBUT_DATES = {
+  ayatsuno_yuni:  "2022-09-04",
+  sakihane_huya:  "2022-09-04",
+  shirayuki_hina: "2023-03-25",
+  neneko_mashiro: "2023-03-25",
+  akane_lize:     "2023-03-25",
+  arahashi_tabi:  "2023-03-25",
+  tenko_shibuki:  "2024-03-16",
+  aokumo_rin:     "2024-03-16",
+  hanako_nana:    "2024-03-16",
+  yuzuha_riko:    "2024-03-16",
+};
+
 // ─── 팔로워 추이 ────────────────────────────────────
 function renderFollowers() {
   // 날짜별 멤버 팔로워 그룹핑
@@ -743,14 +781,19 @@ function renderFollowers() {
       const m = MEMBERS_META.find(m => m.id === mid);
       const dateMap = {};
       rows.forEach(r => dateMap[r.date] = r.val);
+      const debutDate = DEBUT_DATES[mid] || null;
       return {
         label: m?.name || mid,
-        data: allDates.map(d => dateMap[d] || null),
+        data: allDates.map(d => {
+          if (debutDate && d < debutDate) return null;
+          return dateMap[d] || null;
+        }),
         borderColor: MEMBER_COLORS[mid] || "#aaa",
-        backgroundColor: "transparent",
-        tension: 0.3,
+        backgroundColor: hexAlpha(MEMBER_COLORS[mid] || "#aaa", 0.08),
+        tension: 0.4,
         borderWidth: 2,
-        pointRadius: 3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
         spanGaps: true,
       };
     });
