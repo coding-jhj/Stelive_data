@@ -423,11 +423,11 @@ async function loadCSV(path) {
 }
 
 async function init() {
-  DATA.streams    = await loadJSON("../data/streams.json");
-  DATA.music      = await loadJSON("../data/music.json");
-  DATA.collabs    = await loadJSON("../data/collabs.json");
-  DATA.followers  = await loadCSV("../data/followers.csv");
-  DATA.subscribers = await loadCSV("../data/subscribers.csv");
+  DATA.streams    = await loadJSON("./data/streams.json");
+  DATA.music      = await loadJSON("./data/music.json");
+  DATA.collabs    = await loadJSON("./data/collabs.json");
+  DATA.followers  = await loadCSV("./data/followers.csv");
+  DATA.subscribers = await loadCSV("./data/subscribers.csv");
 
   // 멤버 메타 (streams에서 추출)
   const seen = new Set();

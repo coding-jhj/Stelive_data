@@ -46,6 +46,9 @@ jobs:
           git diff --staged --quiet || git commit -m "data: 자동 수집 $(date +'%Y-%m-%d')"
           git push
 
+      - name: data를 dashboard로 복사
+        run: cp -r data/ dashboard/data/
+
       - name: GitHub Pages 배포 준비
         uses: actions/configure-pages@v4
 
