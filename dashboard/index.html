@@ -514,10 +514,12 @@ function renderOverview() {
   const sorted = Object.entries(catCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
   makeDoughnut("chartCategory", sorted.map(x=>x[0]), sorted.map(x=>x[1]));
 
-  // 구독자
+  // 구독자 (0·1은 수집 실패로 간주, 유효한 값 중 최신)
   const latestSubs = {};
   for (const row of DATA.subscribers) {
     const key = row.member_id;
+    const cnt = parseInt(row.subscriber_count) || 0;
+    if (cnt <= 1) continue;
     if (!latestSubs[key] || row.date > latestSubs[key].date)
       latestSubs[key] = row;
   }
@@ -592,6 +594,8 @@ function renderMembers() {
   const latestF = getLatestFollowers();
   const latestS = {};
   for (const row of DATA.subscribers) {
+    const cnt = parseInt(row.subscriber_count) || 0;
+    if (cnt <= 1) continue;
     if (!latestS[row.member_id] || row.date > latestS[row.member_id].date)
       latestS[row.member_id] = row;
   }
@@ -663,8 +667,19 @@ function renderStreams(mid) {
 }
 
 // ─── 음악 ──────────────────────────────────────────
+function isRealMusic(item) {
+  const title = (item.title || "").toLowerCase();
+  const hasShortsTag = title.includes("#shorts") || title.includes("shorts");
+  const hasMusicKw = ["cover", "live", "노래", "sing", "歌", "mv", "ost", "piano",
+                      "concert", "콘서트", "original", "feat", "remix"].some(k => title.includes(k));
+  // shorts인데 음악 키워드 없으면 제외
+  if (hasShortsTag && !hasMusicKw) return false;
+  return true;
+}
+
 function renderMusic() {
-  const sorted = [...DATA.music].sort((a,b) => (b.published_at||"").localeCompare(a.published_at||""));
+  const filtered = DATA.music.filter(isRealMusic);
+  const sorted = [...filtered].sort((a,b) => (b.published_at||"").localeCompare(a.published_at||""));
   document.getElementById("musicCount").textContent = `${sorted.length}곡`;
   document.getElementById("musicTable").innerHTML = sorted.map(m => `
     <tr>
@@ -767,35 +782,32 @@ const DEBUT_DATES = {
 };
 
 // ─── 팔로워 추이 ────────────────────────────────────
-// 두 날짜 사이 월별 라벨 생성 (YYYY-MM 단위)
 function genMonthLabels(startDate, endDate) {
   const labels = [];
   const cur = new Date(startDate.slice(0,7) + "-01");
   const end = new Date(endDate.slice(0,7) + "-01");
   while (cur <= end) {
-    labels.push(cur.toISOString().slice(0,7)); // "YYYY-MM"
+    labels.push(cur.toISOString().slice(0,7));
     cur.setMonth(cur.getMonth() + 1);
   }
   return labels;
 }
 
 function renderFollowers() {
-  // 날짜별 멤버 팔로워 그룹핑
   const byMember = {};
   for (const row of DATA.followers) {
     if (!byMember[row.member_id]) byMember[row.member_id] = [];
     byMember[row.member_id].push({ date: row.date, val: parseInt(row.follower_count)||0 });
   }
 
-  // 가장 이른 데뷔일 ~ 오늘까지 월별 X축 생성
+  // 가장 이른 데뷔일 ~ 오늘까지 월별 X축
   const today = new Date().toISOString().slice(0,10);
-  const earliestDebut = Object.values(DEBUT_DATES).sort()[0]; // "2022-09-04"
-  const monthLabels = genMonthLabels(earliestDebut, today); // ["2022-09", "2022-10", ...]
+  const earliestDebut = Object.values(DEBUT_DATES).sort()[0];
+  const monthLabels = genMonthLabels(earliestDebut, today);
 
   {
     const datasets = Object.entries(byMember).map(([mid, rows]) => {
       const m = MEMBERS_META.find(m => m.id === mid);
-      // followers.csv 날짜를 YYYY-MM으로 집계 (같은 달 여러 개면 마지막 값 사용)
       const monthMap = {};
       rows.sort((a,b) => a.date.localeCompare(b.date))
           .forEach(r => { monthMap[r.date.slice(0,7)] = r.val; });
@@ -803,8 +815,8 @@ function renderFollowers() {
       return {
         label: m?.name || mid,
         data: monthLabels.map(ym => {
-          if (ym < debutMonth) return null;          // 데뷔 전은 null
-          return monthMap[ym] ?? null;               // 수집된 달만 점 표시
+          if (ym < debutMonth) return null;
+          return monthMap[ym] ?? null;
         }),
         borderColor: MEMBER_COLORS[mid] || "#aaa",
         backgroundColor: hexAlpha(MEMBER_COLORS[mid] || "#aaa", 0.08),
