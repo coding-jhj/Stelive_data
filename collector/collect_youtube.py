@@ -151,7 +151,19 @@ def fetch_all_videos(channel_id: str) -> list:
             v["view_count"]  = int(stats.get("viewCount", 0))
             v["like_count"]  = int(stats.get("likeCount", 0))
             v["category_id"] = snip.get("categoryId", "")
-            v["is_music"]    = snip.get("categoryId", "") == "10"
+            # is_music: 카테고리 10이지만 #shorts이면서 음악 키워드 없는 건 제외
+            title_lower = v["title"].lower()
+            is_cat_music = snip.get("categoryId", "") == "10"
+            has_shorts_tag = "#shorts" in title_lower
+            has_music_kw = any(k in title_lower for k in [
+                "cover", "live", "노래", "sing", "歌", "mv", "ost", "piano",
+                "concert", "콘서트", "original", "feat", "remix", "arrange",
+                "ver.", "version", "3d live", "full",
+            ])
+            if has_shorts_tag and not has_music_kw:
+                v["is_music"] = False
+            else:
+                v["is_music"] = is_cat_music
             enriched.append(v)
         time.sleep(0.1)
 
