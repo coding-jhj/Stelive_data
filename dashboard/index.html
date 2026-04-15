@@ -667,9 +667,21 @@ function renderStreams(mid) {
 }
 
 // ─── 음악 ──────────────────────────────────────────
+const MUSIC_KEYWORDS = [
+  "cover", "커버", "mv", "m/v", "original", "오리지널",
+  "concert", "콘서트", "3d live", "1st live", "2nd live", "3rd live",
+  "노래", "sing", "song", "歌", "ost", "feat", "remix", "arrange",
+  "ver.", "version", "piano", "acoustic",
+];
+
+function isRealMusic(item) {
+  const title = (item.title || "").toLowerCase();
+  return MUSIC_KEYWORDS.some(k => title.includes(k));
+}
+
 function renderMusic() {
-  // music.json은 이미 is_music=True만 필터링된 데이터이므로 추가 필터 불필요
-  const sorted = [...DATA.music].sort((a,b) => (b.published_at||"").localeCompare(a.published_at||""));
+  const filtered = DATA.music.filter(isRealMusic);
+  const sorted = [...filtered].sort((a,b) => (b.published_at||"").localeCompare(a.published_at||""));
   document.getElementById("musicCount").textContent = `${sorted.length}곡`;
   document.getElementById("musicTable").innerHTML = sorted.map(m => `
     <tr>
@@ -809,11 +821,12 @@ function renderFollowers() {
           return monthMap[ym] ?? null;
         }),
         borderColor: MEMBER_COLORS[mid] || "#aaa",
-        backgroundColor: hexAlpha(MEMBER_COLORS[mid] || "#aaa", 0.08),
-        tension: 0.4,
-        borderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
+        backgroundColor: "transparent",
+        tension: 0.3,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: MEMBER_COLORS[mid] || "#aaa",
         spanGaps: true,
       };
     });
@@ -826,10 +839,35 @@ function renderFollowers() {
         data: { labels: monthLabels, datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { labels: { font: { family: "'Noto Sans KR'", size: 11 } } } },
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                font: { family: "'Noto Sans KR'", size: 10 },
+                boxWidth: 12, boxHeight: 2,
+                padding: 12,
+                usePointStyle: true, pointStyle: "line",
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.dataset.label}: ${(ctx.raw||0).toLocaleString()}명`
+              }
+            }
+          },
           scales: {
-            x: { grid: { display: false }, ticks: { font: { family: "'DM Mono'", size: 10 }, maxTicksLimit: 24 } },
-            y: { grid: { color: "rgba(0,0,0,.05)" }, ticks: { font: { family: "'DM Mono'" } } }
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: "'DM Mono'", size: 9 }, maxTicksLimit: 12, maxRotation: 0 }
+            },
+            y: {
+              grid: { color: "rgba(0,0,0,.04)" },
+              ticks: {
+                font: { family: "'DM Mono'", size: 9 },
+                callback: v => v >= 10000 ? (v/10000).toFixed(0)+"만" : v.toLocaleString()
+              }
+            }
           }
         }
       });
