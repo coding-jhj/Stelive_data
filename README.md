@@ -2,7 +2,7 @@
 
 스텔라이브 멤버 데이터를 자동 수집하고 웹 대시보드로 시각화하는 프로젝트입니다.
 
-🌐 **[대시보드 보기 →](https://YOUR_USERNAME.github.io/stellive-data)**
+🌐 **[대시보드 보기 →](https://coding-jhj.github.io/Stelive_data/)**
 
 ---
 
