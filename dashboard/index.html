@@ -356,9 +356,57 @@ header {
   <!-- ⑥ 팔로워 추이 -->
   <div class="section" id="sec-followers">
     <div class="chart-box" style="margin-bottom:20px">
-      <div class="chart-title">치지직 팔로워 추이</div>
-      <div class="chart-wrap" style="height:320px"><canvas id="chartFollowerTrend"></canvas></div>
+      <div class="chart-title">팔로워 레이스</div>
+
+      <!-- 컨트롤 -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="display:flex;gap:4px" id="race-platform-tabs">
+          <button class="race-ptab active" data-p="chzzk"
+            style="font-size:12px;font-weight:700;padding:5px 14px;border-radius:12px;border:1px solid #03C75A;background:#03C75A;color:#fff;cursor:pointer">
+            치지직
+          </button>
+          <button class="race-ptab" data-p="youtube"
+            style="font-size:12px;font-weight:700;padding:5px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">
+            유튜브
+          </button>
+          <button class="race-ptab" data-p="total"
+            style="font-size:12px;font-weight:700;padding:5px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">
+            합산
+          </button>
+        </div>
+        <button id="race-play-btn"
+          style="font-size:12px;font-weight:700;padding:5px 18px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer">
+          재생
+        </button>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
+          <span>속도</span>
+          <input type="range" id="race-speed" min="1" max="5" value="3" style="width:64px">
+          <span id="race-speed-val">3x</span>
+        </div>
+      </div>
+
+      <!-- 범례 -->
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;color:var(--muted)">
+        <span style="display:flex;align-items:center;gap:5px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#b060c8;display:inline-block"></span>1기 Everys
+        </span>
+        <span style="display:flex;align-items:center;gap:5px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#e09820;display:inline-block"></span>2기 Universe
+        </span>
+        <span style="display:flex;align-items:center;gap:5px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#20b8c0;display:inline-block"></span>3기 Cliché
+        </span>
+      </div>
+
+      <!-- 바 차트 영역 -->
+      <div id="race-chart" style="width:100%"></div>
+      <div id="race-time"
+        style="font-size:24px;font-weight:900;color:var(--muted);text-align:right;margin-top:12px;font-family:'DM Mono',monospace;letter-spacing:-.03em">
+        데뷔 시작
+      </div>
     </div>
+
+    <!-- 스냅샷 테이블 -->
     <div class="table-box">
       <div class="table-header">
         <span class="table-title">팔로워 스냅샷</span>
@@ -783,105 +831,168 @@ const DEBUT_DATES = {
   yuzuha_riko:    "2024-03-16",
 };
 
-// ─── 팔로워 추이 ────────────────────────────────────
-function genMonthLabels(startDate, endDate) {
-  const labels = [];
-  const cur = new Date(startDate.slice(0,7) + "-01");
-  const end = new Date(endDate.slice(0,7) + "-01");
-  while (cur <= end) {
-    labels.push(cur.toISOString().slice(0,7));
-    cur.setMonth(cur.getMonth() + 1);
+// ─── 팔로워 추이 (레이스 바 차트) ──────────────────────
+const RACE_FRAMES = 80;
+let raceFrame = 0;
+let racePlaying = false;
+let raceTimer = null;
+let racePlatform = "chzzk";
+let raceSpeed = 3;
+let raceMembers = [];
+
+function buildRaceMembers() {
+  // followers.csv에서 멤버별 최신 치지직 팔로워
+  const latestF = {};
+  for (const row of DATA.followers) {
+    const mid = row.member_id;
+    const val = parseInt(row.follower_count) || 0;
+    if (!latestF[mid] || row.date > latestF[mid].date)
+      latestF[mid] = { date: row.date, val };
   }
-  return labels;
+  // subscribers.csv에서 멤버별 최신 유튜브 구독자
+  const latestS = {};
+  for (const row of DATA.subscribers) {
+    const mid = row.member_id;
+    const val = parseInt(row.subscriber_count) || 0;
+    if (val <= 1) continue;
+    if (!latestS[mid] || row.date > latestS[mid].date)
+      latestS[mid] = { date: row.date, val };
+  }
+  // GEN 정보
+  const genMap = { 1: 1, 2: 1 }; // index → fallback
+  const genOf = {};
+  for (const m of MEMBERS_META) genOf[m.id] = m.gen;
+
+  raceMembers = MEMBERS_META.map(m => ({
+    id:    m.id,
+    name:  m.name,
+    gen:   m.gen,
+    color: MEMBER_COLORS[m.id] || "#aaa",
+    debut: DEBUT_DATES[m.id] || "2023-01-01",
+    chzzk: latestF[m.id]?.val || 0,
+    yt:    latestS[m.id]?.val || 0,
+  }));
+}
+
+function raceGetVal(m) {
+  return racePlatform === "chzzk" ? m.chzzk
+       : racePlatform === "youtube" ? m.yt
+       : m.chzzk + m.yt;
+}
+
+function raceFmt(n) {
+  if (n >= 10000) return (n / 10000).toFixed(1) + "만";
+  return n.toLocaleString();
+}
+
+function raceFrameDate(f) {
+  const start = new Date("2022-09-04");
+  const end   = new Date();
+  const t = f / RACE_FRAMES;
+  const ms = start.getTime() + (end.getTime() - start.getTime()) * t;
+  const d = new Date(ms);
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월`;
+}
+
+function raceRender(f) {
+  const t = f / RACE_FRAMES;
+  const vals = raceMembers.map(m => ({
+    ...m,
+    cur: Math.round(raceGetVal(m) * t),
+  }));
+  const sorted = [...vals].sort((a,b) => b.cur - a.cur);
+  const maxVal = sorted[0]?.cur || 1;
+
+  document.getElementById("race-chart").innerHTML = sorted.map((m, i) => {
+    const pct = (m.cur / maxVal * 100).toFixed(1);
+    const small = parseFloat(pct) < 15;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;height:34px">
+      <div style="width:18px;font-size:11px;color:var(--muted);text-align:right;flex-shrink:0">${i+1}</div>
+      <div style="width:88px;font-size:11px;color:var(--text);text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>
+      <div style="flex:1;position:relative;height:28px;background:rgba(130,100,200,0.07);border-radius:5px;overflow:visible">
+        <div style="height:100%;width:${pct}%;background:${m.color};border-radius:5px;position:relative;transition:width 0.4s cubic-bezier(0.4,0,0.2,1)">
+          ${!small ? `<span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#fff;font-family:'DM Mono',monospace;white-space:nowrap">${raceFmt(m.cur)}</span>` : ""}
+        </div>
+        ${small ? `<span style="position:absolute;left:calc(${pct}% + 6px);top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap">${raceFmt(m.cur)}</span>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("race-time").textContent =
+    f === 0 ? "데뷔 시작" : raceFrameDate(f);
+}
+
+function raceStep() {
+  raceFrame++;
+  if (raceFrame > RACE_FRAMES) {
+    raceFrame = RACE_FRAMES;
+    racePlaying = false;
+    clearInterval(raceTimer);
+    document.getElementById("race-play-btn").textContent = "다시 재생";
+    return;
+  }
+  raceRender(raceFrame);
+}
+
+function raceInitControls() {
+  document.getElementById("race-play-btn").addEventListener("click", () => {
+    if (racePlaying) {
+      racePlaying = false;
+      clearInterval(raceTimer);
+      document.getElementById("race-play-btn").textContent = "재생";
+      return;
+    }
+    if (raceFrame >= RACE_FRAMES) raceFrame = 0;
+    racePlaying = true;
+    document.getElementById("race-play-btn").textContent = "일시정지";
+    const iv = Math.max(30, 200 - raceSpeed * 30);
+    raceTimer = setInterval(raceStep, iv);
+  });
+
+  document.getElementById("race-speed").addEventListener("input", e => {
+    raceSpeed = +e.target.value;
+    document.getElementById("race-speed-val").textContent = raceSpeed + "x";
+    if (racePlaying) {
+      clearInterval(raceTimer);
+      const iv = Math.max(30, 200 - raceSpeed * 30);
+      raceTimer = setInterval(raceStep, iv);
+    }
+  });
+
+  document.getElementById("race-platform-tabs").addEventListener("click", e => {
+    const btn = e.target.closest("[data-p]");
+    if (!btn) return;
+    racePlatform = btn.dataset.p;
+    document.querySelectorAll(".race-ptab").forEach(b => {
+      b.style.background = "var(--surface)";
+      b.style.color = "var(--muted)";
+      b.style.borderColor = "var(--border)";
+      b.classList.remove("active");
+    });
+    const c = { chzzk:"#03C75A", youtube:"#FF0000", total:"#8040d0" };
+    btn.style.background = c[racePlatform];
+    btn.style.color = "#fff";
+    btn.style.borderColor = c[racePlatform];
+    btn.classList.add("active");
+    if (racePlaying) { clearInterval(raceTimer); racePlaying = false; document.getElementById("race-play-btn").textContent = "재생"; }
+    raceFrame = 0;
+    raceRender(0);
+  });
 }
 
 function renderFollowers() {
-  const byMember = {};
-  for (const row of DATA.followers) {
-    if (!byMember[row.member_id]) byMember[row.member_id] = [];
-    byMember[row.member_id].push({ date: row.date, val: parseInt(row.follower_count)||0 });
-  }
+  buildRaceMembers();
+  raceInitControls();
+  raceRender(0);
 
-  // 가장 이른 데뷔일 ~ 오늘까지 월별 X축
-  const today = new Date().toISOString().slice(0,10);
-  const earliestDebut = Object.values(DEBUT_DATES).sort()[0];
-  const monthLabels = genMonthLabels(earliestDebut, today);
-
-  {
-    const datasets = Object.entries(byMember).map(([mid, rows]) => {
-      const m = MEMBERS_META.find(m => m.id === mid);
-      const monthMap = {};
-      rows.sort((a,b) => a.date.localeCompare(b.date))
-          .forEach(r => { monthMap[r.date.slice(0,7)] = r.val; });
-      const debutMonth = (DEBUT_DATES[mid] || earliestDebut).slice(0,7);
-      return {
-        label: m?.name || mid,
-        data: monthLabels.map(ym => {
-          if (ym < debutMonth) return null;
-          return monthMap[ym] ?? null;
-        }),
-        borderColor: MEMBER_COLORS[mid] || "#aaa",
-        backgroundColor: "transparent",
-        tension: 0.3,
-        borderWidth: 1.5,
-        pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHoverBackgroundColor: MEMBER_COLORS[mid] || "#aaa",
-        spanGaps: true,
-      };
-    });
-
-    destroyChart("chartFollowerTrend");
-    const ctx = document.getElementById("chartFollowerTrend");
-    if (ctx) {
-      chartInstances["chartFollowerTrend"] = new Chart(ctx, {
-        type: "line",
-        data: { labels: monthLabels, datasets },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          interaction: { mode: "index", intersect: false },
-          plugins: {
-            legend: {
-              position: "bottom",
-              labels: {
-                font: { family: "'Noto Sans KR'", size: 10 },
-                boxWidth: 12, boxHeight: 2,
-                padding: 12,
-                usePointStyle: true, pointStyle: "line",
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: ctx => ` ${ctx.dataset.label}: ${(ctx.raw||0).toLocaleString()}명`
-              }
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { font: { family: "'DM Mono'", size: 9 }, maxTicksLimit: 12, maxRotation: 0 }
-            },
-            y: {
-              grid: { color: "rgba(0,0,0,.04)" },
-              ticks: {
-                font: { family: "'DM Mono'", size: 9 },
-                callback: v => v >= 10000 ? (v/10000).toFixed(0)+"만" : v.toLocaleString()
-              }
-            }
-          }
-        }
-      });
-    }
-  }
-
-  // 팔로워 테이블
+  // 스냅샷 테이블
   const sorted = [...DATA.followers].sort((a,b) => (b.date||"").localeCompare(a.date||""));
   document.getElementById("followerTable").innerHTML = sorted.slice(0,100).map(row => `
     <tr>
       <td style="font-family:'DM Mono';font-size:11px">${row.date}</td>
       <td><span class="member-dot" style="background:${MEMBER_COLORS[row.member_id]||'#aaa'}"></span>${row.member_name}</td>
       <td style="font-family:'DM Mono'">${parseInt(row.follower_count||0).toLocaleString()}</td>
-      <td>${row.is_live==="True"||row.is_live===true ? "🔴 라이브" : ""}</td>
+      <td>${row.is_live==="True"||row.is_live===true ? "라이브" : ""}</td>
     </tr>
   `).join("") || `<tr><td colspan="4" class="empty-state">데이터 없음</td></tr>`;
 }
