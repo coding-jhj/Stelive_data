@@ -767,6 +767,18 @@ const DEBUT_DATES = {
 };
 
 // ─── 팔로워 추이 ────────────────────────────────────
+// 두 날짜 사이 월별 라벨 생성 (YYYY-MM 단위)
+function genMonthLabels(startDate, endDate) {
+  const labels = [];
+  const cur = new Date(startDate.slice(0,7) + "-01");
+  const end = new Date(endDate.slice(0,7) + "-01");
+  while (cur <= end) {
+    labels.push(cur.toISOString().slice(0,7)); // "YYYY-MM"
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return labels;
+}
+
 function renderFollowers() {
   // 날짜별 멤버 팔로워 그룹핑
   const byMember = {};
@@ -774,19 +786,25 @@ function renderFollowers() {
     if (!byMember[row.member_id]) byMember[row.member_id] = [];
     byMember[row.member_id].push({ date: row.date, val: parseInt(row.follower_count)||0 });
   }
-  const allDates = [...new Set(DATA.followers.map(r=>r.date))].sort();
 
-  if (allDates.length > 0) {
+  // 가장 이른 데뷔일 ~ 오늘까지 월별 X축 생성
+  const today = new Date().toISOString().slice(0,10);
+  const earliestDebut = Object.values(DEBUT_DATES).sort()[0]; // "2022-09-04"
+  const monthLabels = genMonthLabels(earliestDebut, today); // ["2022-09", "2022-10", ...]
+
+  {
     const datasets = Object.entries(byMember).map(([mid, rows]) => {
       const m = MEMBERS_META.find(m => m.id === mid);
-      const dateMap = {};
-      rows.forEach(r => dateMap[r.date] = r.val);
-      const debutDate = DEBUT_DATES[mid] || null;
+      // followers.csv 날짜를 YYYY-MM으로 집계 (같은 달 여러 개면 마지막 값 사용)
+      const monthMap = {};
+      rows.sort((a,b) => a.date.localeCompare(b.date))
+          .forEach(r => { monthMap[r.date.slice(0,7)] = r.val; });
+      const debutMonth = (DEBUT_DATES[mid] || earliestDebut).slice(0,7);
       return {
         label: m?.name || mid,
-        data: allDates.map(d => {
-          if (debutDate && d < debutDate) return null;
-          return dateMap[d] || null;
+        data: monthLabels.map(ym => {
+          if (ym < debutMonth) return null;          // 데뷔 전은 null
+          return monthMap[ym] ?? null;               // 수집된 달만 점 표시
         }),
         borderColor: MEMBER_COLORS[mid] || "#aaa",
         backgroundColor: hexAlpha(MEMBER_COLORS[mid] || "#aaa", 0.08),
@@ -803,12 +821,12 @@ function renderFollowers() {
     if (ctx) {
       chartInstances["chartFollowerTrend"] = new Chart(ctx, {
         type: "line",
-        data: { labels: allDates, datasets },
+        data: { labels: monthLabels, datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { labels: { font: { family: "'Noto Sans KR'", size: 11 } } } },
           scales: {
-            x: { grid: { display: false } },
+            x: { grid: { display: false }, ticks: { font: { family: "'DM Mono'", size: 10 }, maxTicksLimit: 24 } },
             y: { grid: { color: "rgba(0,0,0,.05)" }, ticks: { font: { family: "'DM Mono'" } } }
           }
         }
