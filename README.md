@@ -1,5 +1,4 @@
 # 🌟 StelLive Data Dashboard
-
 스텔라이브 멤버 데이터를 자동 수집하고 웹 대시보드로 시각화하는 프로젝트입니다.
 
 🌐 **[대시보드 보기 →](https://coding-jhj.github.io/Stelive_data/)**
@@ -23,11 +22,13 @@ stellive-data/
 │   ├── collabs.json / .csv     ← 콜라보 기록
 │   ├── followers.csv           ← 치지직 팔로워 추이
 │   ├── subscribers.csv         ← 유튜브 구독자 추이
-│   └── videos.json / .csv      ← 유튜브 영상 전체
+│   ├── videos.json / .csv      ← 유튜브 영상 전체
+│   └── kiriunuki.json          ← 인기 키리누키 클립 (자동 생성)
 ├── dashboard/
 │   └── index.html              ← 웹 대시보드
 └── .github/workflows/
-    └── collect-and-deploy.yml  ← 매일 자동 수집 + Pages 배포
+    ├── collect-and-deploy.yml  ← 매일 자동 수집 + Pages 배포
+    └── fetch_kiriunuki.yml     ← 매일 인기 키리누키 영상 수집
 ```
 
 ---
@@ -56,10 +57,10 @@ python collect_all.py
 1. `Settings → Secrets → New repository secret`
    - Name: `YOUTUBE_API_KEY`
    - Value: 발급받은 키
-
 2. `Settings → Pages → Source: GitHub Actions`
 
-→ 매일 오전 9시 자동 수집 + 대시보드 배포
+→ 매일 오전 9시 자동 수집 + 대시보드 배포  
+→ 매일 자정 인기 키리누키 영상 자동 수집
 
 ---
 
@@ -71,6 +72,7 @@ python collect_all.py
 - **음악**: 발매 목록, 조회수·좋아요
 - **콜라보**: 멤버×멤버 히트맵, 상세 기록
 - **팔로워 추이**: 날짜별 라인 차트
+- **키리누키**: 인기 키리누키 클립 Top 15
 
 ---
 
