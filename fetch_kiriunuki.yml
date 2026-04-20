@@ -1,0 +1,118 @@
+name: Fetch Kiriunuki Videos
+
+on:
+  schedule:
+    - cron: '0 15 * * *'   # 매일 한국시간 자정 (UTC 15:00)
+  workflow_dispatch:         # 수동 실행 가능
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Fetch YouTube videos
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          python3 << 'PYEOF'
+          import requests, json, os
+          from datetime import datetime, timezone
+
+          API_KEY = os.environ["YOUTUBE_API_KEY"]
+          BASE    = "https://www.googleapis.com/youtube/v3"
+
+          QUERIES = [
+              "스텔라이브 키리누키",
+              "stellive 키리누키",
+              "스텔라이브 clip",
+          ]
+
+          seen = set()
+          videos = []
+
+          for query in QUERIES:
+              # 검색
+              r = requests.get(f"{BASE}/search", params={
+                  "part": "snippet",
+                  "q": query,
+                  "type": "video",
+                  "maxResults": 20,
+                  "order": "viewCount",
+                  "relevanceLanguage": "ko",
+                  "key": API_KEY,
+              })
+              items = r.json().get("items", [])
+
+              # 영상 ID 모음
+              ids = [i["id"]["videoId"] for i in items if i["id"]["videoId"] not in seen]
+              if not ids:
+                  continue
+
+              # 상세 정보 (조회수, 좋아요 등)
+              r2 = requests.get(f"{BASE}/videos", params={
+                  "part": "snippet,statistics,contentDetails",
+                  "id": ",".join(ids),
+                  "key": API_KEY,
+              })
+
+              for v in r2.json().get("items", []):
+                  vid = v["id"]
+                  if vid in seen:
+                      continue
+                  seen.add(vid)
+
+                  stats = v.get("statistics", {})
+                  snip  = v["snippet"]
+
+                  # 썸네일 최고화질
+                  thumbs = snip.get("thumbnails", {})
+                  thumb = (thumbs.get("maxres") or thumbs.get("high") or thumbs.get("medium") or {}).get("url", "")
+
+                  videos.append({
+                      "id":          vid,
+                      "title":       snip["title"],
+                      "channel":     snip["channelTitle"],
+                      "channelId":   snip["channelId"],
+                      "published":   snip["publishedAt"][:10],
+                      "thumb":       thumb,
+                      "views":       int(stats.get("viewCount", 0)),
+                      "likes":       int(stats.get("likeCount", 0)),
+                      "url":         f"https://www.youtube.com/watch?v={vid}",
+                  })
+
+          # 조회수 내림차순 정렬, 상위 15개
+          videos.sort(key=lambda x: x["views"], reverse=True)
+          videos = videos[:15]
+
+          output = {
+              "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+              "videos": videos,
+          }
+
+          os.makedirs("data", exist_ok=True)
+          with open("data/kiriunuki.json", "w", encoding="utf-8") as f:
+              json.dump(output, f, ensure_ascii=False, indent=2)
+
+          print(f"✅ 수집 완료: {len(videos)}개")
+          for v in videos[:5]:
+              print(f"  {v['views']:>10,}회  {v['title'][:40]}")
+          PYEOF
+
+      - name: Commit & Push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/kiriunuki.json
+          git diff --cached --quiet || git commit -m "chore: update kiriunuki videos [$(date -u +%Y-%m-%d)]"
+          git push
