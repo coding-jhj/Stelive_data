@@ -184,7 +184,7 @@ function loadKiriunuki(){
   }
 
   // GitHub Pages 환경: JSON fetch
-  const JSON_URL = './data/kiriunuki.json';
+  const JSON_URL = '../data/kiriunuki.json';
   fetch(JSON_URL + '?t=' + Date.now())
     .then(r => { if(!r.ok) throw new Error(r.status); return r.json(); })
     .then(data => {
@@ -3923,7 +3923,7 @@ function renderHomeKiPreview(){
   if(isLocal){
     drawKi(DUMMY, true);
   } else {
-    fetch('./data/kiriunuki.json?t='+Date.now())
+    fetch('../data/kiriunuki.json?t='+Date.now())
       .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
       .then(function(data){ var v=(data.videos||[]).slice(0,3); drawKi(v.length?v:DUMMY, false); })
       .catch(function(){ drawKi(DUMMY, false); });
