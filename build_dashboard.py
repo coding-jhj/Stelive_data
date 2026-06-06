@@ -144,7 +144,8 @@ def js(obj):
 def inject(blocks):
     raw = io.open(HTML, encoding="utf-8", newline="").read()
     cr, lf = raw.count("\r"), raw.count("\n")
-    lines = raw.split("\r\n")
+    nl = "\r\n" if "\r\n" in raw else "\n"  # CI(git autocrlf)=LF, 로컬=CRLF 양쪽 대응
+    lines = raw.split(nl)
 
     def replace(prefix, newline):
         start = next(i for i, l in enumerate(lines) if l.lstrip().startswith(prefix))
@@ -161,7 +162,7 @@ def inject(blocks):
     replace("const FOL_DATES=[", "const FOL_DATES=" + js(blocks["FOL_DATES"]) + ";")
     replace("const FOL_DATA={",  "const FOL_DATA=" + js(blocks["FOL_DATA"]) + ";")
 
-    out = "\r\n".join(lines)
+    out = nl.join(lines)
     io.open(HTML, "w", encoding="utf-8", newline="").write(out)
     ncr, nlf = out.count("\r"), out.count("\n")
     print(f"CRLF: CR {cr}->{ncr} / LF {lf}->{nlf} {'OK' if ncr == nlf else 'MISMATCH'}")
