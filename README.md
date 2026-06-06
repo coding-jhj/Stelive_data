@@ -10,12 +10,14 @@
 ```
 stellive-data/
 ├── collect_all.py              ← 전체 수집 실행
+├── build_dashboard.py          ← 수집 데이터로 대시보드 임베드 재생성 (동결 방지)
 ├── config.py                   ← 멤버 설정 (채널 ID 포함)
 ├── requirements.txt
 ├── .env.example
 ├── collector/
 │   ├── collect_youtube.py      ← YouTube API 수집
-│   └── collect_chzzk.py        ← 치지직 스크래핑
+│   ├── collect_chzzk.py        ← 치지직 스크래핑
+│   └── collect_kiriunuki.py    ← 인기 키리누키 클립 수집
 ├── data/                       ← 수집 데이터 (자동 생성)
 │   ├── streams.json / .csv     ← 방송 기록
 │   ├── music.json / .csv       ← 음악 발매
@@ -27,8 +29,7 @@ stellive-data/
 ├── dashboard/
 │   └── index.html              ← 웹 대시보드
 └── .github/workflows/
-    ├── collect-and-deploy.yml  ← 매일 자동 수집 + Pages 배포
-    └── fetch_kiriunuki.yml     ← 매일 인기 키리누키 영상 수집
+    └── collect-and-deploy.yml  ← 매일 수집 → 임베드 재생성 → Pages 배포
 ```
 
 ---
@@ -59,20 +60,18 @@ python collect_all.py
    - Value: 발급받은 키
 2. `Settings → Pages → Source: GitHub Actions`
 
-→ 매일 오전 9시 자동 수집 + 대시보드 배포  
-→ 매일 자정 인기 키리누키 영상 자동 수집
+→ 매일 오전 9시(KST) 자동 수집 → 대시보드 임베드 재생성 → Pages 배포
 
 ---
 
 ## 📊 대시보드 기능
 
-- **개요**: 팔로워·구독자·방송·음악·콜라보 통계 + 차트
-- **멤버별**: 기수별 필터, 개별 통계 카드
-- **방송 기록**: 전체/멤버별 필터, 카테고리·조회수
-- **음악**: 발매 목록, 조회수·좋아요
-- **콜라보**: 멤버×멤버 히트맵, 상세 기록
-- **팔로워 추이**: 날짜별 라인 차트
-- **키리누키**: 인기 키리누키 클립 Top 15
+- **홈**: 핵심 KPI · 오늘 방송 현황 · 주간 하이라이트
+- **멤버**: 멤버별 상세 프로필 · 치지직/유튜브/트위터 링크
+- **활동 분석**: 멤버별 성과 · 기수별 비교 · 카테고리 · 시간 흐름 · 팔로워 현황 · 인사이트
+- **방송 기록**: 전체/멤버/카테고리/연도 필터 · 검색 · 정렬
+- **키리누키**: 인기 팬 클립 Top 15 (조회수 순)
+- **회사 소개**: 스텔라이브 소개
 
 ---
 
