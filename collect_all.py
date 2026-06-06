@@ -14,4 +14,5 @@ if __name__ == "__main__":
     print("🌟 스텔라이브 데이터 수집 시작")
     run("collect_youtube.py")
     run("collect_chzzk.py")
+    run("collect_kiriunuki.py")
     print("\n✅ 모든 수집 완료! data/ 폴더에서 결과 확인하세요.")

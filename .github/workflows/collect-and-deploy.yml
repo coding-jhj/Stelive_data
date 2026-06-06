@@ -31,7 +31,7 @@ jobs:
       - name: 패키지 설치
         run: pip install -r requirements.txt
 
-      - name: 데이터 수집
+      - name: 데이터 수집 (YouTube · 치지직 · 키리누키)
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python collect_all.py
@@ -43,6 +43,9 @@ jobs:
           git add data/
           git diff --staged --quiet || git commit -m "data: 자동 수집 $(date +'%Y-%m-%d')"
           git push
+
+      - name: 대시보드 임베드 재생성 (동결 방지)
+        run: python build_dashboard.py
 
       - name: data를 dashboard로 복사
         run: cp -r data/ dashboard/data/
