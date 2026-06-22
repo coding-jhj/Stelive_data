@@ -1,0 +1,5 @@
+# 대시보드 임베드 HTML과 수집 데이터는 언어 통계에서 제외 → Python 부각
+dashboard/index.html linguist-vendored
+data/** linguist-generated
+*.csv linguist-generated
+*.json linguist-generated
